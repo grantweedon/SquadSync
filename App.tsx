@@ -19,10 +19,11 @@ const App: React.FC = () => {
       setSyncError(null);
       const response = await fetch(`/api/weekends?t=${Date.now()}`);
       
-      // If the backend returns 404, it might not be deployed/running yet
-      if (response.status === 404) {
+      // If the backend returns 404 (Server not found) or 503 (DB not initialized), 
+      // treat as offline mode for preview/development.
+      if (response.status === 404 || response.status === 503) {
         if (isInitial) {
-          console.warn("API not detected. Running in Local Mode.");
+          console.warn(`API issue (${response.status}). Running in Local Mode.`);
           setIsOfflineMode(true);
           const saved = localStorage.getItem('squad_sync_offline');
           if (saved) {

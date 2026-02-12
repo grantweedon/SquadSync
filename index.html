@@ -34,7 +34,13 @@
 </head>
 <body>
   <div id="root"></div>
-  <!-- Entry point for the React application using Babel -->
-  <script type="text/babel" data-type="module" src="index.tsx"></script>
+  
+  <!-- Pre-register modules to help Babel resolve local imports -->
+  <script type="text/babel" data-type="module" src="./types.ts"></script>
+  <script type="text/babel" data-type="module" src="./constants.ts"></script>
+  <script type="text/babel" data-type="module" src="./components/StatusBadge.tsx"></script>
+  <script type="text/babel" data-type="module" src="./services/geminiService.ts"></script>
+  <script type="text/babel" data-type="module" src="./App.tsx"></script>
+  <script type="text/babel" data-type="module" src="./index.tsx"></script>
 </body>
 </html>

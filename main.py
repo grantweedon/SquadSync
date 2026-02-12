@@ -1,4 +1,3 @@
-
 import os
 import logging
 from flask import Flask, send_from_directory, jsonify, request
@@ -20,12 +19,23 @@ except Exception as e:
     logger.error(f"Failed to initialize Firestore: {e}")
     db = None
 
+@app.after_request
+def add_header(response):
+    """Disable caching for all API routes to ensure sync."""
+    if request.path.startswith('/api/'):
+        response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+    return response
+
 # --- API ROUTES ---
+
+@app.route('/health')
+def health_check():
+    return jsonify({"status": "healthy", "database": db is not None}), 200
 
 @app.route('/api/weekends', methods=['GET'])
 def get_weekends():
     if not db:
-        return jsonify({"error": "Database not available"}), 503
+        return jsonify({"error": "Database not initialized"}), 503
     try:
         docs = db.collection(COLLECTION).order_by("id").stream()
         weekends = []
@@ -40,14 +50,14 @@ def get_weekends():
 @app.route('/api/weekends', methods=['POST'])
 def update_weekend():
     if not db:
-        return jsonify({"error": "Database not available"}), 503
+        return jsonify({"error": "Database not initialized"}), 503
     try:
         data = request.json
         weekend_id = data.get('id')
         if not weekend_id:
             return jsonify({"error": "ID required"}), 400
         
-        db.collection(COLLECTION).document(weekend_id).set(data)
+        db.collection(COLLECTION).document(weekend_id).set(data, merge=True)
         return jsonify({"success": True})
     except Exception as e:
         logger.error(f"Error updating weekend: {e}")
@@ -56,7 +66,7 @@ def update_weekend():
 @app.route('/api/initialize', methods=['POST'])
 def initialize_data():
     if not db:
-        return jsonify({"error": "Database not available"}), 503
+        return jsonify({"error": "Database not initialized"}), 503
     try:
         data_list = request.json
         existing = db.collection(COLLECTION).limit(1).get()
@@ -67,9 +77,9 @@ def initialize_data():
                 batch.set(doc_ref, item)
             batch.commit()
             return jsonify({"success": True, "message": "Initialized"})
-        return jsonify({"success": True, "message": "Already initialized"})
+        return jsonify({"success": True, "message": "Already exists"})
     except Exception as e:
-        logger.error(f"Error initializing: {e}")
+        logger.error(f"Initialization error: {e}")
         return jsonify({"error": str(e)}), 500
 
 # --- STATIC FILE ROUTES ---
@@ -80,11 +90,10 @@ def index():
 
 @app.route('/<path:path>')
 def static_files(path):
-    # Prevent static file handler from trying to serve API calls
+    # Ensure API calls never hit the static file handler
     if path.startswith('api/'):
-        return jsonify({"error": "Not Found"}), 404
+        return jsonify({"error": "Endpoint not found"}), 404
 
-    # Resolve files without extensions to .tsx or .ts for browser convenience
     file_path = path
     if not os.path.exists(file_path):
         if os.path.exists(path + '.tsx'):
@@ -92,7 +101,6 @@ def static_files(path):
         elif os.path.exists(path + '.ts'):
             file_path = path + '.ts'
 
-    # Ensure correct MIME types for TypeScript/TSX files
     if file_path.endswith('.tsx') or file_path.endswith('.ts'):
         return send_from_directory('.', file_path, mimetype='text/javascript')
     

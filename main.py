@@ -1,7 +1,9 @@
+
 import os
 import logging
+import json
 import datetime
-from flask import Flask, send_from_directory, jsonify, request
+from flask import Flask, send_from_directory, jsonify, request, make_response
 from flask_cors import CORS
 
 # Configure logging
@@ -12,18 +14,14 @@ app = Flask(__name__, static_folder='.')
 CORS(app)
 
 # --- DATABASE ABSTRACTION ---
-# We implement a dual-strategy: Firestore (Production) -> In-Memory (Fallback/Preview)
-
 db = None
 COLLECTION = "squad_availability"
 USING_MEMORY_DB = False
-memory_db = {} # Fallback storage: { "doc_id": { data } }
+memory_db = {} 
 
 try:
     from google.cloud import firestore
     try:
-        # Attempt to init Firestore
-        # explicitly getting project ID can help in some preview environments
         project_id = os.environ.get('GOOGLE_CLOUD_PROJECT')
         if project_id:
             db = firestore.Client(project=project_id)
@@ -56,19 +54,26 @@ def health_check():
 @app.route('/env.js')
 def env_js():
     api_key = os.environ.get('API_KEY', '')
-    js_content = f'window.process = {{ env: {{ API_KEY: "{api_key}" }} }};'
-    return js_content, 200, {'Content-Type': 'application/javascript'}
+    # Safely merge into window.process.env
+    # We escape quotes just in case
+    safe_key = json.dumps(api_key)
+    js_content = f"""
+    if (!window.process) window.process = {{}};
+    if (!window.process.env) window.process.env = {{}};
+    window.process.env.API_KEY = {safe_key};
+    """
+    response = make_response(js_content)
+    response.headers['Content-Type'] = 'application/javascript'
+    return response
 
 @app.route('/api/weekends', methods=['GET'])
 def get_weekends():
     try:
         weekends = []
         if USING_MEMORY_DB:
-            # Sort by ID (which is ISO date string)
             weekends = sorted(memory_db.values(), key=lambda x: x.get('id', ''))
         else:
             if not db:
-                 # Should not happen given logic above, but safety check
                  return jsonify({"error": "DB not ready"}), 503
             docs = db.collection(COLLECTION).order_by("id").stream()
             for doc in docs:
@@ -142,18 +147,30 @@ def static_files(path):
 
     # Resolve file path
     file_path = path
+    
+    # Handle .tsx extension auto-resolution if needed
     if not os.path.exists(file_path):
         if os.path.exists(path + '.tsx'):
             file_path = path + '.tsx'
         elif os.path.exists(path + '.ts'):
             file_path = path + '.ts'
 
-    # Important: Serve TSX/TS with correct mime types for Babel Standalone
-    # Note: Browsers might complain about text/javascript for TSX, but Babel needs to intercept it.
-    if file_path.endswith('.tsx') or file_path.endswith('.ts'):
-        return send_from_directory('.', file_path, mimetype='text/plain') 
+    # Security check: ensure file is in current directory
+    if '..' in file_path or file_path.startswith('/'):
+        return jsonify({"error": "Access denied"}), 403
+
+    # Use send_from_directory safely
+    directory = os.path.dirname(file_path) or '.'
+    filename = os.path.basename(file_path)
     
-    return send_from_directory('.', file_path)
+    # Check existence before sending to avoid 500s from send_from_directory
+    if not os.path.exists(os.path.join(directory, filename)):
+         return "File not found", 404
+
+    if file_path.endswith('.tsx') or file_path.endswith('.ts'):
+         return send_from_directory(directory, filename, mimetype='text/plain')
+    
+    return send_from_directory(directory, filename)
 
 if __name__ == "__main__":
     port = int(os.environ.get('PORT', 8080))

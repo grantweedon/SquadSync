@@ -1,17 +1,19 @@
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { WeekendAvailability, AvailabilityStatus, FriendName, SquadInsight } from './types.ts';
-import { INITIAL_WEEKENDS, FRIENDS } from './constants.ts';
-import StatusBadge from './components/StatusBadge.tsx';
-import { getSquadInsight } from './services/geminiService.ts';
 
-const App: React.FC = () => {
-  const [weekends, setWeekends] = useState<WeekendAvailability[]>(INITIAL_WEEKENDS);
-  const [insight, setInsight] = useState<SquadInsight | null>(null);
+// Access React from global scope (UMD)
+const React = (window as any).React;
+const { useState, useMemo, useEffect, useCallback } = React;
+
+// Access app globals
+const { INITIAL_WEEKENDS, FRIENDS, AvailabilityStatus, StatusBadge, getSquadInsight } = (window as any);
+
+const App = () => {
+  const [weekends, setWeekends] = useState(INITIAL_WEEKENDS);
+  const [insight, setInsight] = useState(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isOfflineMode, setIsOfflineMode] = useState(false);
-  const [lastSynced, setLastSynced] = useState<Date | null>(null);
-  const [syncError, setSyncError] = useState<string | null>(null);
+  const [lastSynced, setLastSynced] = useState(null);
+  const [syncError, setSyncError] = useState(null);
   const [isConnecting, setIsConnecting] = useState(true);
 
   const fetchData = useCallback(async (isInitial = false) => {
@@ -19,8 +21,6 @@ const App: React.FC = () => {
       setSyncError(null);
       const response = await fetch(`/api/weekends?t=${Date.now()}`);
       
-      // If the backend returns 404 (Server not found) or 503 (DB not initialized), 
-      // treat as offline mode for preview/development.
       if (response.status === 404 || response.status === 503) {
         if (isInitial) {
           console.warn(`API issue (${response.status}). Running in Local Mode.`);
@@ -45,7 +45,7 @@ const App: React.FC = () => {
           date: new Date(w.id || w.date || Date.now())
         }));
         
-        setWeekends(prev => {
+        setWeekends((prev: any) => {
           const hasChanged = JSON.stringify(prev) !== JSON.stringify(hydrated);
           return hasChanged ? hydrated : prev;
         });
@@ -53,7 +53,6 @@ const App: React.FC = () => {
         setIsOfflineMode(false);
         setIsConnecting(false);
       } else if (isInitial) {
-        // Handle empty database by initializing
         console.log("Empty DB. Initializing...");
         await fetch('/api/initialize', {
           method: 'POST',
@@ -65,7 +64,6 @@ const App: React.FC = () => {
     } catch (err) {
       console.error("Cloud Sync Issue:", err);
       setSyncError("Cloud connection unstable...");
-      // We don't switch to offline mode here; we just wait for the next poll
     } finally {
       if (isInitial) setIsLoading(false);
     }
@@ -75,14 +73,13 @@ const App: React.FC = () => {
     fetchData(true);
   }, [fetchData]);
 
-  // Continuous polling every 5 seconds to stay in sync with other squad members
   useEffect(() => {
     const interval = setInterval(() => fetchData(), 5000);
     return () => clearInterval(interval);
   }, [fetchData]);
 
-  const toggleStatus = async (weekendId: string, name: FriendName) => {
-    const updatedWeekends = weekends.map(w => {
+  const toggleStatus = async (weekendId: string, name: string) => {
+    const updatedWeekends = weekends.map((w: any) => {
       if (w.id === weekendId) {
         const newStatus = w.status[name] === AvailabilityStatus.FREE 
           ? AvailabilityStatus.BUSY 
@@ -94,10 +91,9 @@ const App: React.FC = () => {
         };
 
         if (isOfflineMode) {
-          const newFullList = weekends.map(item => item.id === weekendId ? updatedWeekend : item);
+          const newFullList = weekends.map((item: any) => item.id === weekendId ? updatedWeekend : item);
           localStorage.setItem('squad_sync_offline', JSON.stringify(newFullList));
         } else {
-          // Push update to Firestore immediately
           fetch('/api/weekends', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -118,8 +114,8 @@ const App: React.FC = () => {
   };
 
   const shortlist = useMemo(() => {
-    return weekends.filter(w => 
-      Object.values(w.status).every(s => s === AvailabilityStatus.FREE)
+    return weekends.filter((w: any) => 
+      Object.values(w.status).every((s: any) => s === AvailabilityStatus.FREE)
     );
   }, [weekends]);
 
@@ -209,7 +205,7 @@ const App: React.FC = () => {
           </div>
 
           <div className="space-y-3">
-            {weekends.map(weekend => (
+            {weekends.map((weekend: any) => (
               <div key={weekend.id} className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm hover:border-indigo-200 transition-all">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                   <div className="flex items-center gap-4">
@@ -228,7 +224,7 @@ const App: React.FC = () => {
                     </div>
                   </div>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                    {FRIENDS.map(name => (
+                    {FRIENDS.map((name: any) => (
                       <StatusBadge 
                         key={name}
                         name={name}
@@ -265,7 +261,7 @@ const App: React.FC = () => {
             </h3>
             {shortlist.length > 0 ? (
               <div className="space-y-3">
-                {shortlist.map(w => (
+                {shortlist.map((w: any) => (
                   <div key={w.id} className="bg-white/10 p-3 rounded-xl border border-white/20 flex items-center justify-between">
                     <p className="font-bold text-sm">{w.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</p>
                     <span className="text-[9px] bg-white text-emerald-700 px-2 py-1 rounded-full uppercase font-black">All Free!</span>
@@ -295,4 +291,5 @@ const App: React.FC = () => {
   );
 };
 
-export default App;
+// Export App to window
+(window as any).App = App;

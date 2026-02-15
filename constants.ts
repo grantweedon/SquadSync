@@ -1,9 +1,13 @@
 
-import { FriendName, AvailabilityStatus } from './types';
+// Define AvailabilityStatus directly here to ensure it exists before usage
+const AvailabilityStatus = {
+  FREE: 'FREE',
+  BUSY: 'BUSY'
+};
 
-export const FRIENDS: FriendName[] = ['Grant', 'Gary', 'Stu', 'Ian'];
+const FRIENDS = ['Grant', 'Gary', 'Stu', 'Ian'];
 
-export const FRIEND_COLORS: Record<FriendName, string> = {
+const FRIEND_COLORS = {
   'Grant': 'bg-blue-500',
   'Gary': 'bg-purple-500',
   'Stu': 'bg-amber-500',
@@ -11,7 +15,7 @@ export const FRIEND_COLORS: Record<FriendName, string> = {
 };
 
 // Generate 20 Saturdays starting from May 9, 2026
-export const INITIAL_WEEKENDS = Array.from({ length: 20 }).map((_, i) => {
+const INITIAL_WEEKENDS = Array.from({ length: 20 }).map((_, i) => {
   // May 9, 2026 is a Saturday. Month index 4 is May.
   const d = new Date(2026, 4, 9); 
   d.setDate(d.getDate() + (i * 7));
@@ -28,3 +32,9 @@ export const INITIAL_WEEKENDS = Array.from({ length: 20 }).map((_, i) => {
     }
   };
 });
+
+// Attach to window
+(window as any).AvailabilityStatus = AvailabilityStatus;
+(window as any).FRIENDS = FRIENDS;
+(window as any).FRIEND_COLORS = FRIEND_COLORS;
+(window as any).INITIAL_WEEKENDS = INITIAL_WEEKENDS;

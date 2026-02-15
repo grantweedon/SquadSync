@@ -1,15 +1,10 @@
 
-import React from 'react';
-import { FriendName, AvailabilityStatus } from '../types';
-import { FRIEND_COLORS } from '../constants';
+// No import React necessary; React is global.
 
-interface StatusBadgeProps {
-  name: FriendName;
-  status: AvailabilityStatus;
-  onClick: () => void;
-}
+// Access globals
+const { AvailabilityStatus, FRIEND_COLORS } = (window as any);
 
-const StatusBadge: React.FC<StatusBadgeProps> = ({ name, status, onClick }) => {
+const StatusBadge = ({ name, status, onClick }: any) => {
   const isFree = status === AvailabilityStatus.FREE;
   
   return (
@@ -32,4 +27,5 @@ const StatusBadge: React.FC<StatusBadgeProps> = ({ name, status, onClick }) => {
   );
 };
 
-export default StatusBadge;
+// Export to window
+(window as any).StatusBadge = StatusBadge;

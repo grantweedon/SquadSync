@@ -10,8 +10,69 @@
   <!-- Add Babel for in-browser TSX transpilation -->
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   
+  <!-- Critical Polyfills for Node.js-compatible Modules -->
+  <script>
+    // Define global aliases
+    window.global = window;
+    
+    // Polyfill process
+    window.process = {
+      env: { NODE_ENV: 'production' },
+      version: '',
+      nextTick: function(cb) { setTimeout(cb, 0); }
+    };
+  </script>
+  
+  <!-- Load full Buffer polyfill (UMD build) with crossorigin -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/buffer/6.0.3/buffer.min.js" crossorigin="anonymous"></script>
+  <script>
+    // Expose Buffer globally
+    if (window.buffer && window.buffer.Buffer) {
+        window.Buffer = window.buffer.Buffer;
+        // Some libraries look for global.Buffer
+        window.global.Buffer = window.buffer.Buffer;
+        console.log("Buffer polyfill loaded");
+    }
+  </script>
+
   <!-- Inject environment variables (API Key) from server -->
   <script src="/env.js"></script>
+
+  <!-- React & ReactDOM UMD Builds -->
+  <script crossorigin src="https://unpkg.com/react@18.2.0/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
+  
+  <!-- Load GenAI SDK -->
+  <script type="module">
+    async function loadSDK() {
+      try {
+        console.log("Attempting to load GenAI SDK via esm.sh...");
+        // Use esm.sh with bundle-deps to include node polyfills (like fetch, stream) if needed
+        const mod = await import("https://esm.sh/@google/genai@0.1.1?bundle-deps");
+        
+        window.GoogleGenAI = mod.GoogleGenAI;
+        window.SchemaType = mod.Type;
+        
+        if (window.GoogleGenAI) {
+           console.log("GenAI SDK loaded successfully via esm.sh");
+           return;
+        }
+        throw new Error("GoogleGenAI not found in module exports");
+      } catch (e) {
+        console.warn("esm.sh load failed, trying JSDelivr fallback...", e);
+        try {
+           // Fallback to JSDelivr
+           const mod = await import("https://cdn.jsdelivr.net/npm/@google/genai@0.1.1/+esm");
+           window.GoogleGenAI = mod.GoogleGenAI || (mod.default && mod.default.GoogleGenAI);
+           window.SchemaType = mod.Type || (mod.default && mod.default.Type);
+           console.log("GenAI SDK loaded via JSDelivr");
+        } catch (e2) {
+           console.error("All GenAI SDK imports failed.", e2);
+        }
+      }
+    }
+    loadSDK();
+  </script>
 
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
@@ -23,11 +84,7 @@
 <script type="importmap">
 {
   "imports": {
-    "react": "https://esm.sh/react@^19.2.4",
-    "react-dom/client": "https://esm.sh/react-dom@^19.2.4/client",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
-    "react/": "https://esm.sh/react@^19.2.4/",
-    "@google/genai": "https://esm.sh/@google/genai@^1.40.0"
+    "react/": "https://esm.sh/react@^19.2.4/"
   }
 }
 </script>
@@ -35,12 +92,13 @@
 <body>
   <div id="root"></div>
   
-  <!-- Pre-register modules to help Babel resolve local imports -->
-  <script type="text/babel" data-type="module" src="./types.ts"></script>
-  <script type="text/babel" data-type="module" src="./constants.ts"></script>
-  <script type="text/babel" data-type="module" src="./components/StatusBadge.tsx"></script>
-  <script type="text/babel" data-type="module" src="./services/geminiService.ts"></script>
-  <script type="text/babel" data-type="module" src="./App.tsx"></script>
-  <script type="text/babel" data-type="module" src="./index.tsx"></script>
+  <!-- 
+    Load application scripts sequentially.
+  -->
+  <script type="text/babel" data-presets="typescript,react" src="./constants.ts" crossorigin="anonymous"></script>
+  <script type="text/babel" data-presets="typescript,react" src="./components/StatusBadge.tsx" crossorigin="anonymous"></script>
+  <script type="text/babel" data-presets="typescript,react" src="./services/geminiService.ts" crossorigin="anonymous"></script>
+  <script type="text/babel" data-presets="typescript,react" src="./App.tsx" crossorigin="anonymous"></script>
+  <script type="text/babel" data-presets="typescript,react" src="./index.tsx" crossorigin="anonymous"></script>
 </body>
 </html>

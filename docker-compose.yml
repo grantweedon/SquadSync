@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      # --- IMPORTANT ---
+      # Replace this with your actual Google Gemini API Key
+      # For local development, you can also set up Application Default Credentials
+      # by running `gcloud auth application-default login` on your host machine.
+      - API_KEY=YOUR_GEMINI_API_KEY_HERE
+      
+      # Optional: Specify your Google Cloud project ID if not set elsewhere
+      # - GOOGLE_CLOUD_PROJECT=your-gcp-project-id
+    volumes:
+      # This allows for hot-reloading on code changes during development.
+      # For a production build, you would remove this.
+      - .:/app
+    command: >
+      sh -c "pip install --no-cache-dir -r requirements.txt && 
+             flask run --host=0.0.0.0 --port=8080"
